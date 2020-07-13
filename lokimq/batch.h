@@ -1,4 +1,4 @@
-// Copyright (c)      2020, The Loki Project
+// Copyright (c)      2020, The Kredits Project
 //
 // All rights reserved.
 //
@@ -30,9 +30,9 @@
 #include <exception>
 #include <functional>
 #include <vector>
-#include "lokimq.h"
+#include "kreditsmq.h"
 
-namespace lokimq {
+namespace kreditsmq {
 
 namespace detail {
 
@@ -71,7 +71,7 @@ public:
  * This is designed to be like a very stripped down version of a std::promise/std::future pair.  We
  * reimplemented it, however, because by ditching all the thread synchronization that promise/future
  * guarantees we can substantially reduce call overhead (by a factor of ~8 according to benchmarking
- * code).  Since LokiMQ's proxy<->worker communication channel already gives us thread that overhead
+ * code).  Since KreditsMQ's proxy<->worker communication channel already gives us thread that overhead
  * would just be wasted.
  *
  * @tparam R the value type held by the result; must be default constructible.  Note, however, that
@@ -128,13 +128,13 @@ public:
     void get() { if (exc) std::rethrow_exception(exc); }
 };
 
-/// Helper class used to set up batches of jobs to be scheduled via the lokimq job handler.
+/// Helper class used to set up batches of jobs to be scheduled via the kreditsmq job handler.
 /// 
 /// @tparam R - the return type of the individual jobs
 ///
 template <typename R>
 class Batch final : private detail::Batch {
-    friend class LokiMQ;
+    friend class KreditsMQ;
 public:
     /// The completion function type, called after all jobs have finished.
     using CompletionFunc = std::function<void(std::vector<job_result<R>> results)>;
@@ -160,7 +160,7 @@ private:
 
     void check_not_started() {
         if (started)
-            throw std::logic_error("Cannot add jobs or completion function after starting a lokimq::Batch!");
+            throw std::logic_error("Cannot add jobs or completion function after starting a kreditsmq::Batch!");
     }
 
 public:
@@ -240,7 +240,7 @@ private:
 
 
 template <typename R>
-void LokiMQ::batch(Batch<R>&& batch) {
+void KreditsMQ::batch(Batch<R>&& batch) {
     if (batch.size() == 0)
         throw std::logic_error("Cannot batch a a job batch with 0 jobs");
     // Need to send this over to the proxy thread via the base class pointer.  It assumes ownership.

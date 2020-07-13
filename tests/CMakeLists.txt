@@ -17,7 +17,7 @@ find_package(Threads)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SODIUM REQUIRED libsodium)
 
-target_link_libraries(tests Catch2::Catch2 lokimq ${SODIUM_LIBRARIES} Threads::Threads)
+target_link_libraries(tests Catch2::Catch2 kreditsmq ${SODIUM_LIBRARIES} Threads::Threads)
 
 set_target_properties(tests PROPERTIES
     CXX_STANDARD 14

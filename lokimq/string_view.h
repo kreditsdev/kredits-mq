@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Loki Project
+// Copyright (c) 2019-2020, The Kredits Project
 //
 // All rights reserved.
 //
@@ -33,7 +33,7 @@
 #ifdef __cpp_lib_string_view
 
 #include <string_view>
-namespace lokimq {
+namespace kreditsmq {
 using string_view = std::string_view;
 using ustring_view = std::basic_string_view<unsigned char>;
 }
@@ -43,7 +43,7 @@ using ustring_view = std::basic_string_view<unsigned char>;
 #include <ostream>
 #include <limits>
 
-namespace lokimq {
+namespace kreditsmq {
 
 /// Basic implementation of std::string_view (except for std::hash support).
 template <typename CharT>
@@ -303,7 +303,7 @@ using ustring_view = simple_string_view<unsigned char>;
 
 // Add a "foo"_sv literal that works exactly like the C++17 "foo"sv literal, but works with our
 // implementation in pre-C++17.
-namespace lokimq {
+namespace kreditsmq {
 inline namespace literals {
     inline constexpr string_view operator""_sv(const char* str, size_t len) { return {str, len}; }
 }

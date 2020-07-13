@@ -1,10 +1,10 @@
-#include "lokimq.h"
+#include "kreditsmq.h"
 #include "batch.h"
-#include "lokimq-internal.h"
+#include "kreditsmq-internal.h"
 
-namespace lokimq {
+namespace kreditsmq {
 
-void LokiMQ::proxy_batch(detail::Batch* batch) {
+void KreditsMQ::proxy_batch(detail::Batch* batch) {
     batches.insert(batch);
     const int jobs = batch->size();
     for (int i = 0; i < jobs; i++)
@@ -12,14 +12,14 @@ void LokiMQ::proxy_batch(detail::Batch* batch) {
     proxy_skip_one_poll = true;
 }
 
-void LokiMQ::job(std::function<void()> f) {
+void KreditsMQ::job(std::function<void()> f) {
     auto* b = new Batch<void>;
     b->add_job(std::move(f));
     auto* baseptr = static_cast<detail::Batch*>(b);
     detail::send_control(get_control_socket(), "BATCH", bt_serialize(reinterpret_cast<uintptr_t>(baseptr)));
 }
 
-void LokiMQ::proxy_schedule_reply_job(std::function<void()> f) {
+void KreditsMQ::proxy_schedule_reply_job(std::function<void()> f) {
     auto* b = new Batch<void>;
     b->add_job(std::move(f));
     batches.insert(b);
@@ -27,7 +27,7 @@ void LokiMQ::proxy_schedule_reply_job(std::function<void()> f) {
     proxy_skip_one_poll = true;
 }
 
-void LokiMQ::proxy_run_batch_jobs(std::queue<batch_job>& jobs, const int reserved, int& active, bool reply) {
+void KreditsMQ::proxy_run_batch_jobs(std::queue<batch_job>& jobs, const int reserved, int& active, bool reply) {
     while (!jobs.empty() && active_workers() < max_workers &&
             (active < reserved || active_workers() < general_workers)) {
         proxy_run_worker(get_idle_worker().load(std::move(jobs.front()), reply));
@@ -38,20 +38,20 @@ void LokiMQ::proxy_run_batch_jobs(std::queue<batch_job>& jobs, const int reserve
 
 // Called either within the proxy thread, or before the proxy thread has been created; actually adds
 // the timer.  If the timer object hasn't been set up yet it gets set up here.
-void LokiMQ::proxy_timer(std::function<void()> job, std::chrono::milliseconds interval, bool squelch) {
+void KreditsMQ::proxy_timer(std::function<void()> job, std::chrono::milliseconds interval, bool squelch) {
     if (!timers)
         timers.reset(zmq_timers_new());
 
     int timer_id = zmq_timers_add(timers.get(),
             interval.count(),
-            [](int timer_id, void* self) { static_cast<LokiMQ*>(self)->_queue_timer_job(timer_id); },
+            [](int timer_id, void* self) { static_cast<KreditsMQ*>(self)->_queue_timer_job(timer_id); },
             this);
     if (timer_id == -1)
         throw zmq::error_t{};
     timer_jobs[timer_id] = std::make_tuple(std::move(job), squelch, false);
 }
 
-void LokiMQ::proxy_timer(bt_list_consumer timer_data) {
+void KreditsMQ::proxy_timer(bt_list_consumer timer_data) {
     std::unique_ptr<std::function<void()>> func{reinterpret_cast<std::function<void()>*>(timer_data.consume_integer<uintptr_t>())};
     auto interval = std::chrono::milliseconds{timer_data.consume_integer<uint64_t>()};
     auto squelch = timer_data.consume_integer<bool>();
@@ -60,7 +60,7 @@ void LokiMQ::proxy_timer(bt_list_consumer timer_data) {
     proxy_timer(std::move(*func), interval, squelch);
 }
 
-void LokiMQ::_queue_timer_job(int timer_id) {
+void KreditsMQ::_queue_timer_job(int timer_id) {
     auto it = timer_jobs.find(timer_id);
     if (it == timer_jobs.end()) {
         LMQ_LOG(warn, "Could not find timer job ", timer_id);
@@ -92,7 +92,7 @@ void LokiMQ::_queue_timer_job(int timer_id) {
     assert(b->size() == 1);
 }
 
-void LokiMQ::add_timer(std::function<void()> job, std::chrono::milliseconds interval, bool squelch) {
+void KreditsMQ::add_timer(std::function<void()> job, std::chrono::milliseconds interval, bool squelch) {
     if (proxy_thread.joinable()) {
         detail::send_control(get_control_socket(), "TIMER", bt_serialize(bt_list{{
                     detail::serialize_object(std::move(job)),
@@ -103,6 +103,6 @@ void LokiMQ::add_timer(std::function<void()> job, std::chrono::milliseconds inte
     }
 }
 
-void LokiMQ::TimersDeleter::operator()(void* timers) { zmq_timers_destroy(&timers); }
+void KreditsMQ::TimersDeleter::operator()(void* timers) { zmq_timers_destroy(&timers); }
 
 }

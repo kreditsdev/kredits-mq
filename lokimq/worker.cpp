@@ -1,11 +1,11 @@
-#include "lokimq.h"
+#include "kreditsmq.h"
 #include "batch.h"
 #include "hex.h"
-#include "lokimq-internal.h"
+#include "kreditsmq-internal.h"
 
-namespace lokimq {
+namespace kreditsmq {
 
-void LokiMQ::worker_thread(unsigned int index) {
+void KreditsMQ::worker_thread(unsigned int index) {
     std::string worker_id = "w" + std::to_string(index);
 
 #if defined(__linux__) || defined(__sun) || defined(__MINGW32__)
@@ -102,7 +102,7 @@ void LokiMQ::worker_thread(unsigned int index) {
 }
 
 
-LokiMQ::run_info& LokiMQ::get_idle_worker() {
+KreditsMQ::run_info& KreditsMQ::get_idle_worker() {
     if (idle_workers.empty()) {
         size_t id = workers.size();
         assert(workers.capacity() > id);
@@ -117,7 +117,7 @@ LokiMQ::run_info& LokiMQ::get_idle_worker() {
     return workers[id];
 }
 
-void LokiMQ::proxy_worker_message(std::vector<zmq::message_t>& parts) {
+void KreditsMQ::proxy_worker_message(std::vector<zmq::message_t>& parts) {
     // Process messages sent by workers
     if (parts.size() != 2) {
         LMQ_LOG(error, "Received send invalid ", parts.size(), "-part message");
@@ -190,14 +190,14 @@ void LokiMQ::proxy_worker_message(std::vector<zmq::message_t>& parts) {
     }
 }
 
-void LokiMQ::proxy_run_worker(run_info& run) {
+void KreditsMQ::proxy_run_worker(run_info& run) {
     if (!run.worker_thread.joinable())
-        run.worker_thread = std::thread{&LokiMQ::worker_thread, this, run.worker_id};
+        run.worker_thread = std::thread{&KreditsMQ::worker_thread, this, run.worker_id};
     else
         send_routed_message(workers_socket, run.worker_routing_id, "RUN");
 }
 
-void LokiMQ::proxy_to_worker(size_t conn_index, std::vector<zmq::message_t>& parts) {
+void KreditsMQ::proxy_to_worker(size_t conn_index, std::vector<zmq::message_t>& parts) {
     bool outgoing = connections[conn_index].getsockopt<int>(ZMQ_TYPE) == ZMQ_DEALER;
 
     peer_info tmp_peer;

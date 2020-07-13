@@ -1,5 +1,5 @@
 #include "common.h"
-#include <lokimq/hex.h>
+#include <kreditsmq/hex.h>
 extern "C" {
 #include <sodium.h>
 }
@@ -7,7 +7,7 @@ extern "C" {
 
 TEST_CASE("connections with curve authentication", "[curve][connect]") {
     std::string listen = "tcp://127.0.0.1:4455";
-    LokiMQ server{
+    KreditsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -20,7 +20,7 @@ TEST_CASE("connections with curve authentication", "[curve][connect]") {
     server.add_request_command("public", "hello", [&](Message& m) { m.send_reply("hi"); });
     server.start();
 
-    LokiMQ client{get_logger("C» "), LogLevel::trace};
+    KreditsMQ client{get_logger("C» "), LogLevel::trace};
 
     client.start();
 
@@ -54,7 +54,7 @@ TEST_CASE("self-connection SN optimization", "[connect][self]") {
     pubkey.resize(crypto_box_PUBLICKEYBYTES);
     privkey.resize(crypto_box_SECRETKEYBYTES);
     crypto_box_keypair(reinterpret_cast<unsigned char*>(&pubkey[0]), reinterpret_cast<unsigned char*>(&privkey[0]));
-    LokiMQ sn{
+    KreditsMQ sn{
         pubkey, privkey,
         true,
         [&](auto pk) { if (pk == pubkey) return "tcp://127.0.0.1:5544"; else return ""; },
@@ -91,7 +91,7 @@ TEST_CASE("self-connection SN optimization", "[connect][self]") {
 
 TEST_CASE("plain-text connections", "[plaintext][connect]") {
     std::string listen = "tcp://127.0.0.1:4455";
-    LokiMQ server{get_logger("S» "), LogLevel::trace};
+    KreditsMQ server{get_logger("S» "), LogLevel::trace};
 
     server.add_category("public", Access{AuthLevel::none});
     server.add_request_command("public", "hello", [&](Message& m) { m.send_reply("hi"); });
@@ -100,7 +100,7 @@ TEST_CASE("plain-text connections", "[plaintext][connect]") {
 
     server.start();
 
-    LokiMQ client{get_logger("C» "), LogLevel::trace};
+    KreditsMQ client{get_logger("C» "), LogLevel::trace};
 
     client.start();
 
@@ -130,7 +130,7 @@ TEST_CASE("plain-text connections", "[plaintext][connect]") {
 
 TEST_CASE("unique connection IDs", "[connect][id]") {
     std::string listen = "tcp://127.0.0.1:4455";
-    LokiMQ server{get_logger("S» "), LogLevel::trace};
+    KreditsMQ server{get_logger("S» "), LogLevel::trace};
 
     ConnectionID first, second;
     server.add_category("x", Access{AuthLevel::none})
@@ -142,8 +142,8 @@ TEST_CASE("unique connection IDs", "[connect][id]") {
 
     server.start();
 
-    LokiMQ client1{get_logger("C1» "), LogLevel::trace};
-    LokiMQ client2{get_logger("C2» "), LogLevel::trace};
+    KreditsMQ client1{get_logger("C1» "), LogLevel::trace};
+    KreditsMQ client2{get_logger("C2» "), LogLevel::trace};
     client1.start();
     client2.start();
 
@@ -185,7 +185,7 @@ TEST_CASE("unique connection IDs", "[connect][id]") {
 
 
 TEST_CASE("SN disconnections", "[connect][disconnect]") {
-    std::vector<std::unique_ptr<LokiMQ>> lmq;
+    std::vector<std::unique_ptr<KreditsMQ>> lmq;
     std::vector<std::string> pubkey, privkey;
     std::unordered_map<std::string, std::string> conn;
     for (int i = 0; i < 3; i++) {
@@ -198,7 +198,7 @@ TEST_CASE("SN disconnections", "[connect][disconnect]") {
     }
     std::atomic<int> his{0};
     for (int i = 0; i < pubkey.size(); i++) {
-        lmq.push_back(std::make_unique<LokiMQ>(
+        lmq.push_back(std::make_unique<KreditsMQ>(
             pubkey[i], privkey[i], true,
             [conn](auto pk) { auto it = conn.find((std::string) pk); if (it != conn.end()) return it->second; return ""s; },
             get_logger("S" + std::to_string(i) + "» "),
@@ -235,7 +235,7 @@ TEST_CASE("SN auth checks", "[sandwich][auth]") {
     pubkey.resize(crypto_box_PUBLICKEYBYTES);
     privkey.resize(crypto_box_SECRETKEYBYTES);
     crypto_box_keypair(reinterpret_cast<unsigned char*>(&pubkey[0]), reinterpret_cast<unsigned char*>(&privkey[0]));
-    LokiMQ server{
+    KreditsMQ server{
         pubkey, privkey,
         true, // service node
         [](auto) { return ""; },
@@ -262,7 +262,7 @@ TEST_CASE("SN auth checks", "[sandwich][auth]") {
         .add_request_command("make", [&](Message& m) { m.send_reply("okay"); });
     server.start();
 
-    LokiMQ client{
+    KreditsMQ client{
         "", "", false,
         [&](auto remote_pk) { if (remote_pk == pubkey) return listen; return ""s; },
         get_logger("B» "), LogLevel::trace};
@@ -349,7 +349,7 @@ TEST_CASE("SN single worker test", "[connect][worker]") {
     // Tests a failure case that could trigger when all workers are allocated (here we make that
     // simpler by just having one worker).
     std::string listen = "tcp://127.0.0.1:4455";
-    LokiMQ server{
+    KreditsMQ server{
         "", "",
         false, // service node
         [](auto) { return ""; },
@@ -365,7 +365,7 @@ TEST_CASE("SN single worker test", "[connect][worker]") {
         ;
     server.start();
 
-    LokiMQ client{get_logger("B» "), LogLevel::trace};
+    KreditsMQ client{get_logger("B» "), LogLevel::trace};
     client.start();
     auto conn = client.connect_remote(listen, [](auto) {}, [](auto, auto) {});
 

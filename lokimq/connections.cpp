@@ -1,8 +1,8 @@
-#include "lokimq.h"
-#include "lokimq-internal.h"
+#include "kreditsmq.h"
+#include "kreditsmq-internal.h"
 #include "hex.h"
 
-namespace lokimq {
+namespace kreditsmq {
 
 std::ostream& operator<<(std::ostream& o, const ConnectionID& conn) {
     if (!conn.pk.empty())
@@ -24,7 +24,7 @@ void add_pollitem(std::vector<zmq::pollitem_t>& pollitems, zmq::socket_t& sock) 
 } // anonymous namespace
 
 
-void LokiMQ::rebuild_pollitems() {
+void KreditsMQ::rebuild_pollitems() {
     pollitems.clear();
     add_pollitem(pollitems, command);
     add_pollitem(pollitems, workers_socket);
@@ -35,7 +35,7 @@ void LokiMQ::rebuild_pollitems() {
     pollitems_stale = false;
 }
 
-void LokiMQ::setup_external_socket(zmq::socket_t& socket) {
+void KreditsMQ::setup_external_socket(zmq::socket_t& socket) {
     socket.setsockopt(ZMQ_RECONNECT_IVL, (int) RECONNECT_INTERVAL.count());
     socket.setsockopt(ZMQ_RECONNECT_IVL_MAX, (int) RECONNECT_INTERVAL_MAX.count());
     socket.setsockopt(ZMQ_HANDSHAKE_IVL, (int) HANDSHAKE_TIME.count());
@@ -47,7 +47,7 @@ void LokiMQ::setup_external_socket(zmq::socket_t& socket) {
     }
 }
 
-void LokiMQ::setup_outgoing_socket(zmq::socket_t& socket, string_view remote_pubkey) {
+void KreditsMQ::setup_outgoing_socket(zmq::socket_t& socket, string_view remote_pubkey) {
 
     setup_external_socket(socket);
 
@@ -67,7 +67,7 @@ void LokiMQ::setup_outgoing_socket(zmq::socket_t& socket, string_view remote_pub
     // else let ZMQ pick a random one
 }
 
-ConnectionID LokiMQ::connect_sn(string_view pubkey, std::chrono::milliseconds keep_alive, string_view hint) {
+ConnectionID KreditsMQ::connect_sn(string_view pubkey, std::chrono::milliseconds keep_alive, string_view hint) {
     if (!proxy_thread.joinable())
         throw std::logic_error("Cannot call connect_sn() before calling `start()`");
 
@@ -76,7 +76,7 @@ ConnectionID LokiMQ::connect_sn(string_view pubkey, std::chrono::milliseconds ke
     return pubkey;
 }
 
-ConnectionID LokiMQ::connect_remote(string_view remote, ConnectSuccess on_connect, ConnectFailure on_failure,
+ConnectionID KreditsMQ::connect_remote(string_view remote, ConnectSuccess on_connect, ConnectFailure on_failure,
         string_view pubkey, AuthLevel auth_level, std::chrono::milliseconds timeout) {
     if (!proxy_thread.joinable())
         throw std::logic_error("Cannot call connect_remote() before calling `start()`");
@@ -100,7 +100,7 @@ ConnectionID LokiMQ::connect_remote(string_view remote, ConnectSuccess on_connec
     return id;
 }
 
-void LokiMQ::disconnect(ConnectionID id, std::chrono::milliseconds linger) {
+void KreditsMQ::disconnect(ConnectionID id, std::chrono::milliseconds linger) {
     detail::send_control(get_control_socket(), "DISCONNECT", bt_serialize<bt_dict>({
             {"conn_id", id.id},
             {"linger_ms", linger.count()},
@@ -109,7 +109,7 @@ void LokiMQ::disconnect(ConnectionID id, std::chrono::milliseconds linger) {
 }
 
 std::pair<zmq::socket_t *, std::string>
-LokiMQ::proxy_connect_sn(string_view remote, string_view connect_hint, bool optional, bool incoming_only, bool outgoing_only, std::chrono::milliseconds keep_alive) {
+KreditsMQ::proxy_connect_sn(string_view remote, string_view connect_hint, bool optional, bool incoming_only, bool outgoing_only, std::chrono::milliseconds keep_alive) {
     ConnectionID remote_cid{remote};
     auto its = peers.equal_range(remote_cid);
     peer_info* peer = nullptr;
@@ -184,7 +184,7 @@ LokiMQ::proxy_connect_sn(string_view remote, string_view connect_hint, bool opti
     return {&connections.back(), ""s};
 }
 
-std::pair<zmq::socket_t *, std::string> LokiMQ::proxy_connect_sn(bt_dict_consumer data) {
+std::pair<zmq::socket_t *, std::string> KreditsMQ::proxy_connect_sn(bt_dict_consumer data) {
     string_view hint, remote_pk;
     std::chrono::milliseconds keep_alive;
     bool optional = false, incoming_only = false, outgoing_only = false;
@@ -224,7 +224,7 @@ void update_connection_indices(Container& c, size_t index, AccessIndex get_index
 /// Closes outgoing connections and removes all references.  Note that this will call `erase()`
 /// which can invalidate iterators on the various connection containers - if you don't want that,
 /// delete it first so that the container won't contain the element being deleted.
-void LokiMQ::proxy_close_connection(size_t index, std::chrono::milliseconds linger) {
+void KreditsMQ::proxy_close_connection(size_t index, std::chrono::milliseconds linger) {
     connections[index].setsockopt<int>(ZMQ_LINGER, linger > 0ms ? linger.count() : 0);
     pollitems_stale = true;
     connections.erase(connections.begin() + index);
@@ -242,7 +242,7 @@ void LokiMQ::proxy_close_connection(size_t index, std::chrono::milliseconds ling
     conn_index_to_id.erase(conn_index_to_id.begin() + index);
 }
 
-void LokiMQ::proxy_expire_idle_peers() {
+void KreditsMQ::proxy_expire_idle_peers() {
     for (auto it = peers.begin(); it != peers.end(); ) {
         auto &info = it->second;
         if (info.outgoing()) {
@@ -265,7 +265,7 @@ void LokiMQ::proxy_expire_idle_peers() {
     }
 }
 
-void LokiMQ::proxy_conn_cleanup() {
+void KreditsMQ::proxy_conn_cleanup() {
     LMQ_TRACE("starting proxy connections cleanup");
 
     // Drop idle connections (if we haven't done it in a while)
@@ -305,7 +305,7 @@ void LokiMQ::proxy_conn_cleanup() {
     LMQ_TRACE("done proxy connections cleanup");
 };
 
-void LokiMQ::proxy_connect_remote(bt_dict_consumer data) {
+void KreditsMQ::proxy_connect_remote(bt_dict_consumer data) {
     AuthLevel auth_level = AuthLevel::none;
     long long conn_id = -1;
     ConnectSuccess on_connect;
@@ -370,7 +370,7 @@ void LokiMQ::proxy_connect_remote(bt_dict_consumer data) {
     peers.emplace(std::move(conn), std::move(peer));
 }
 
-void LokiMQ::proxy_disconnect(bt_dict_consumer data) {
+void KreditsMQ::proxy_disconnect(bt_dict_consumer data) {
     ConnectionID connid{-1};
     std::chrono::milliseconds linger = 1s;
 
@@ -386,7 +386,7 @@ void LokiMQ::proxy_disconnect(bt_dict_consumer data) {
 
     proxy_disconnect(std::move(connid), linger);
 }
-void LokiMQ::proxy_disconnect(ConnectionID conn, std::chrono::milliseconds linger) {
+void KreditsMQ::proxy_disconnect(ConnectionID conn, std::chrono::milliseconds linger) {
     LMQ_TRACE("Disconnecting outgoing connection to ", conn);
     auto pr = peers.equal_range(conn);
     for (auto it = pr.first; it != pr.second; ++it) {

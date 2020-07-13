@@ -1,10 +1,10 @@
-#include "lokimq.h"
-#include "lokimq-internal.h"
+#include "kreditsmq.h"
+#include "kreditsmq-internal.h"
 #include "hex.h"
 
-namespace lokimq {
+namespace kreditsmq {
 
-void LokiMQ::proxy_quit() {
+void KreditsMQ::proxy_quit() {
     LMQ_LOG(debug, "Received quit command, shutting down proxy thread");
 
     assert(std::none_of(workers.begin(), workers.end(), [](auto& worker) { return worker.worker_thread.joinable(); }));
@@ -27,7 +27,7 @@ void LokiMQ::proxy_quit() {
     LMQ_LOG(debug, "Proxy thread teardown complete");
 }
 
-void LokiMQ::proxy_send(bt_dict_consumer data) {
+void KreditsMQ::proxy_send(bt_dict_consumer data) {
     // NB: bt_dict_consumer goes in alphabetical order
     string_view hint;
     std::chrono::milliseconds keep_alive{DEFAULT_SEND_KEEP_ALIVE};
@@ -192,7 +192,7 @@ void LokiMQ::proxy_send(bt_dict_consumer data) {
     }
 }
 
-void LokiMQ::proxy_reply(bt_dict_consumer data) {
+void KreditsMQ::proxy_reply(bt_dict_consumer data) {
     bool have_conn_id = false;
     ConnectionID conn_id{0};
     if (data.skip_until("conn_id")) {
@@ -237,11 +237,11 @@ void LokiMQ::proxy_reply(bt_dict_consumer data) {
     }
 }
 
-void LokiMQ::proxy_control_message(std::vector<zmq::message_t>& parts) {
+void KreditsMQ::proxy_control_message(std::vector<zmq::message_t>& parts) {
     // We throw an uncaught exception here because we only generate control messages internally in
-    // lokimq code: if one of these condition fail it's a lokimq bug.
+    // kreditsmq code: if one of these condition fail it's a kreditsmq bug.
     if (parts.size() < 2)
-        throw std::logic_error("LokiMQ bug: Expected 2-3 message parts for a proxy control message");
+        throw std::logic_error("KreditsMQ bug: Expected 2-3 message parts for a proxy control message");
     auto route = view(parts[0]), cmd = view(parts[1]);
     LMQ_TRACE("control message: ", cmd);
     if (parts.size() == 3) {
@@ -287,11 +287,11 @@ void LokiMQ::proxy_control_message(std::vector<zmq::message_t>& parts) {
             return;
         }
     }
-    throw std::runtime_error("LokiMQ bug: Proxy received invalid control command: " +
+    throw std::runtime_error("KreditsMQ bug: Proxy received invalid control command: " +
             std::string{cmd} + " (" + std::to_string(parts.size()) + ")");
 }
 
-void LokiMQ::proxy_loop() {
+void KreditsMQ::proxy_loop() {
 
 #if defined(__linux__) || defined(__sun) || defined(__MINGW32__)
     pthread_setname_np(pthread_self(), "lmq-proxy");
@@ -346,7 +346,7 @@ void LokiMQ::proxy_loop() {
         listener.setsockopt<int>(ZMQ_ROUTER_MANDATORY, 1);
 
         listener.bind(bind[i].first);
-        LMQ_LOG(info, "LokiMQ listening on ", bind[i].first);
+        LMQ_LOG(info, "KreditsMQ listening on ", bind[i].first);
 
         connections.push_back(std::move(listener));
         auto conn_id = next_conn_id++;
@@ -476,7 +476,7 @@ static bool is_error_response(string_view cmd) {
 
 // Return true if we recognized/handled the builtin command (even if we reject it for whatever
 // reason)
-bool LokiMQ::proxy_handle_builtin(size_t conn_index, std::vector<zmq::message_t>& parts) {
+bool KreditsMQ::proxy_handle_builtin(size_t conn_index, std::vector<zmq::message_t>& parts) {
     // Doubling as a bool and an offset:
     size_t incoming = connections[conn_index].getsockopt<int>(ZMQ_TYPE) == ZMQ_ROUTER;
 
@@ -573,7 +573,7 @@ bool LokiMQ::proxy_handle_builtin(size_t conn_index, std::vector<zmq::message_t>
             // pre-1.1.0 sent just a plain UNKNOWNCOMMAND (without the actual command); this was not
             // useful, but also this response is *expected* for things 1.0.5 didn't understand, like
             // FORBIDDEN_SN: so log it only at debug level and move on.
-            LMQ_LOG(debug, "Received plain UNKNOWNCOMMAND; remote is probably an older lokimq. Ignoring.");
+            LMQ_LOG(debug, "Received plain UNKNOWNCOMMAND; remote is probably an older kreditsmq. Ignoring.");
             return true;
         }
 
@@ -598,7 +598,7 @@ bool LokiMQ::proxy_handle_builtin(size_t conn_index, std::vector<zmq::message_t>
     return false;
 }
 
-void LokiMQ::proxy_process_queue() {
+void KreditsMQ::proxy_process_queue() {
     // First up: process any batch jobs; since these are internal they are given higher priority.
     proxy_run_batch_jobs(batch_jobs, batch_jobs_reserved, batch_jobs_active, false);
 

@@ -1,11 +1,11 @@
 #include "common.h"
-#include <lokimq/hex.h>
+#include <kreditsmq/hex.h>
 
-using namespace lokimq;
+using namespace kreditsmq;
 
 TEST_CASE("basic requests", "[requests]") {
     std::string listen = "tcp://127.0.0.1:5678";
-    LokiMQ server{
+    KreditsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -20,7 +20,7 @@ TEST_CASE("basic requests", "[requests]") {
     });
     server.start();
 
-    LokiMQ client(
+    KreditsMQ client(
         [](LogLevel, const char* file, int line, std::string msg) { std::cerr << file << ":" << line << " --C-- " << msg << "\n"; }
         );
     //client.log_level(LogLevel::trace);
@@ -63,7 +63,7 @@ TEST_CASE("basic requests", "[requests]") {
 
 TEST_CASE("request from server to client", "[requests]") {
     std::string listen = "tcp://127.0.0.1:5678";
-    LokiMQ server{
+    KreditsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -78,7 +78,7 @@ TEST_CASE("request from server to client", "[requests]") {
     });
     server.start();
 
-    LokiMQ client(
+    KreditsMQ client(
         [](LogLevel, const char* file, int line, std::string msg) { std::cerr << file << ":" << line << " --C-- " << msg << "\n"; }
         );
     //client.log_level(LogLevel::trace);
@@ -127,7 +127,7 @@ TEST_CASE("request from server to client", "[requests]") {
 
 TEST_CASE("request timeouts", "[requests][timeout]") {
     std::string listen = "tcp://127.0.0.1:5678";
-    LokiMQ server{
+    KreditsMQ server{
         "", "", // generate ephemeral keys
         false, // not a service node
         [](auto) { return ""; },
@@ -140,7 +140,7 @@ TEST_CASE("request timeouts", "[requests][timeout]") {
     server.add_request_command("public", "blackhole", [&](Message& m) { /* doesn't reply */ });
     server.start();
 
-    LokiMQ client(
+    KreditsMQ client(
         [](LogLevel, const char* file, int line, std::string msg) { std::cerr << file << ":" << line << " --C-- " << msg << "\n"; }
         );
     //client.log_level(LogLevel::trace);
@@ -170,7 +170,7 @@ TEST_CASE("request timeouts", "[requests][timeout]") {
             success = ok;
             data = std::move(data_);
         },
-        lokimq::send_option::request_timeout{20ms}
+        kreditsmq::send_option::request_timeout{20ms}
     );
 
     std::atomic<bool> got_triggered2{false};
@@ -179,7 +179,7 @@ TEST_CASE("request timeouts", "[requests][timeout]") {
             success = ok;
             data = std::move(data_);
         },
-        lokimq::send_option::request_timeout{100ms}
+        kreditsmq::send_option::request_timeout{100ms}
     );
 
     std::this_thread::sleep_for(40ms);

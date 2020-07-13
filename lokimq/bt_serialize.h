@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Loki Project
+// Copyright (c) 2019-2020, The Kredits Project
 //
 // All rights reserved.
 //
@@ -42,12 +42,12 @@
 #include "mapbox/variant.hpp"
 
 
-namespace lokimq {
+namespace kreditsmq {
 
 using namespace std::literals;
 
 /** \file
- * LokiMQ serialization for internal commands is very simple: we support two primitive types,
+ * KreditsMQ serialization for internal commands is very simple: we support two primitive types,
  * strings and integers, and two container types, lists and dicts with string keys.  On the wire
  * these go in BitTorrent byte encoding as described in BEP-0003
  * (https://www.bittorrent.org/beps/bep_0003.html#bencoding).
@@ -842,4 +842,4 @@ public:
 };
 
 
-} // namespace lokimq
+} // namespace kreditsmq

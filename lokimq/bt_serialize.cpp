@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Loki Project
+// Copyright (c) 2019-2020, The Kredits Project
 //
 // All rights reserved.
 //
@@ -28,7 +28,7 @@
 
 #include "bt_serialize.h"
 
-namespace lokimq {
+namespace kreditsmq {
 namespace detail {
 
 /// Reads digits into an unsigned 64-bit int.  
@@ -230,4 +230,4 @@ std::pair<string_view, string_view> bt_dict_consumer::next_string() {
 }
 
 
-} // namespace lokimq
+} // namespace kreditsmq

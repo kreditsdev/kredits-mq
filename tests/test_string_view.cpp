@@ -1,8 +1,8 @@
 #include <catch2/catch.hpp>
-#include "lokimq/string_view.h"
+#include "kreditsmq/string_view.h"
 #include <future>
 
-using namespace lokimq;
+using namespace kreditsmq;
 
 using namespace std::literals;
 

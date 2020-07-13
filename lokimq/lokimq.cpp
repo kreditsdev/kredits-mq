@@ -1,5 +1,5 @@
-#include "lokimq.h"
-#include "lokimq-internal.h"
+#include "kreditsmq.h"
+#include "kreditsmq-internal.h"
 #include <map>
 #include <random>
 
@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "hex.h"
 
-namespace lokimq {
+namespace kreditsmq {
 
 namespace {
 
@@ -71,20 +71,20 @@ std::pair<std::string, AuthLevel> extract_metadata(zmq::message_t& msg) {
 
 } // namespace detail
 
-int LokiMQ::set_zmq_context_option(int option, int value) {
+int KreditsMQ::set_zmq_context_option(int option, int value) {
     return context.setctxopt(option, value);
 }
 
-void LokiMQ::log_level(LogLevel level) {
+void KreditsMQ::log_level(LogLevel level) {
     log_lvl.store(level, std::memory_order_relaxed);
 }
 
-LogLevel LokiMQ::log_level() const {
+LogLevel KreditsMQ::log_level() const {
     return log_lvl.load(std::memory_order_relaxed);
 }
 
 
-CatHelper LokiMQ::add_category(std::string name, Access access_level, unsigned int reserved_threads, int max_queue) {
+CatHelper KreditsMQ::add_category(std::string name, Access access_level, unsigned int reserved_threads, int max_queue) {
     check_not_started(proxy_thread, "add a category");
 
     if (name.size() > MAX_CATEGORY_LENGTH)
@@ -102,7 +102,7 @@ CatHelper LokiMQ::add_category(std::string name, Access access_level, unsigned i
     return ret;
 }
 
-void LokiMQ::add_command(const std::string& category, std::string name, CommandCallback callback) {
+void KreditsMQ::add_command(const std::string& category, std::string name, CommandCallback callback) {
     check_not_started(proxy_thread, "add a command");
 
     if (name.size() > MAX_COMMAND_LENGTH)
@@ -121,12 +121,12 @@ void LokiMQ::add_command(const std::string& category, std::string name, CommandC
         throw std::runtime_error("Cannot add command `" + fullname + "': that command already exists");
 }
 
-void LokiMQ::add_request_command(const std::string& category, std::string name, CommandCallback callback) {
+void KreditsMQ::add_request_command(const std::string& category, std::string name, CommandCallback callback) {
     add_command(category, name, std::move(callback));
     categories.at(category).commands.at(name).second = true;
 }
 
-void LokiMQ::add_command_alias(std::string from, std::string to) {
+void KreditsMQ::add_command_alias(std::string from, std::string to) {
     check_not_started(proxy_thread, "add a command alias");
 
     if (from.empty())
@@ -155,14 +155,14 @@ std::atomic<int> next_id{1};
 /// Accesses a thread-local command socket connected to the proxy's command socket used to issue
 /// commands in a thread-safe manner.  A mutex is only required here the first time a thread
 /// accesses the control socket.
-zmq::socket_t& LokiMQ::get_control_socket() {
+zmq::socket_t& KreditsMQ::get_control_socket() {
     assert(proxy_thread.joinable());
 
-    // Maps the LokiMQ unique ID to a local thread command socket.
+    // Maps the KreditsMQ unique ID to a local thread command socket.
     static thread_local std::map<int, std::shared_ptr<zmq::socket_t>> control_sockets;
     static thread_local std::pair<int, std::shared_ptr<zmq::socket_t>> last{-1, nullptr};
 
-    // Optimize by caching the last value; LokiMQ is often a singleton and in that case we're
+    // Optimize by caching the last value; KreditsMQ is often a singleton and in that case we're
     // going to *always* hit this optimization.  Even if it isn't, we're probably likely to need the
     // same control socket from the same thread multiple times sequentially so this may still help.
     if (object_id == last.first)
@@ -176,7 +176,7 @@ zmq::socket_t& LokiMQ::get_control_socket() {
 
     std::lock_guard<std::mutex> lock{control_sockets_mutex};
     if (proxy_shutting_down)
-        throw std::runtime_error("Unable to obtain LokiMQ control socket: proxy thread is shutting down");
+        throw std::runtime_error("Unable to obtain KreditsMQ control socket: proxy thread is shutting down");
     auto control = std::make_shared<zmq::socket_t>(context, zmq::socket_type::dealer);
     control->setsockopt<int>(ZMQ_LINGER, 0);
     control->connect(SN_ADDR_COMMAND);
@@ -188,7 +188,7 @@ zmq::socket_t& LokiMQ::get_control_socket() {
 }
 
 
-LokiMQ::LokiMQ(
+KreditsMQ::KreditsMQ(
         std::string pubkey_,
         std::string privkey_,
         bool service_node,
@@ -199,14 +199,14 @@ LokiMQ::LokiMQ(
         sn_lookup{std::move(lookup)}, log_lvl{level}, logger{std::move(logger)}
 {
 
-    LMQ_TRACE("Constructing LokiMQ, id=", object_id, ", this=", this);
+    LMQ_TRACE("Constructing KreditsMQ, id=", object_id, ", this=", this);
 
     if (pubkey.empty() != privkey.empty()) {
-        throw std::invalid_argument("LokiMQ construction failed: one (and only one) of pubkey/privkey is empty. Both must be specified, or both empty to generate a key.");
+        throw std::invalid_argument("KreditsMQ construction failed: one (and only one) of pubkey/privkey is empty. Both must be specified, or both empty to generate a key.");
     } else if (pubkey.empty()) {
         if (service_node)
-            throw std::invalid_argument("Cannot construct a service node mode LokiMQ without a keypair");
-        LMQ_LOG(debug, "generating x25519 keypair for remote-only LokiMQ instance");
+            throw std::invalid_argument("Cannot construct a service node mode KreditsMQ without a keypair");
+        LMQ_LOG(debug, "generating x25519 keypair for remote-only KreditsMQ instance");
         pubkey.resize(crypto_box_PUBLICKEYBYTES);
         privkey.resize(crypto_box_SECRETKEYBYTES);
         crypto_box_keypair(reinterpret_cast<unsigned char*>(&pubkey[0]), reinterpret_cast<unsigned char*>(&privkey[0]));
@@ -221,11 +221,11 @@ LokiMQ::LokiMQ(
         std::string verify_pubkey(crypto_box_PUBLICKEYBYTES, 0);
         crypto_scalarmult_base(reinterpret_cast<unsigned char*>(&verify_pubkey[0]), reinterpret_cast<unsigned char*>(&privkey[0]));
         if (verify_pubkey != pubkey)
-            throw std::invalid_argument("Invalid pubkey/privkey values given to LokiMQ construction: pubkey verification failed");
+            throw std::invalid_argument("Invalid pubkey/privkey values given to KreditsMQ construction: pubkey verification failed");
     }
 }
 
-void LokiMQ::start() {
+void KreditsMQ::start() {
     if (proxy_thread.joinable())
         throw std::logic_error("Cannot call start() multiple times!");
 
@@ -235,19 +235,19 @@ void LokiMQ::start() {
     if (bind.empty() && local_service_node)
         throw std::invalid_argument{"Cannot create a service node listener with no address(es) to bind"};
 
-    LMQ_LOG(info, "Initializing LokiMQ ", bind.empty() ? "remote-only" : "listener", " with pubkey ", to_hex(pubkey));
+    LMQ_LOG(info, "Initializing KreditsMQ ", bind.empty() ? "remote-only" : "listener", " with pubkey ", to_hex(pubkey));
 
     int zmq_socket_limit = context.getctxopt(ZMQ_SOCKET_LIMIT);
     if (MAX_SOCKETS > 1 && MAX_SOCKETS <= zmq_socket_limit)
         context.setctxopt(ZMQ_MAX_SOCKETS, MAX_SOCKETS);
     else
-        LMQ_LOG(error, "Not applying LokiMQ::MAX_SOCKETS setting: ", MAX_SOCKETS, " must be in [1, ", zmq_socket_limit, "]");
+        LMQ_LOG(error, "Not applying KreditsMQ::MAX_SOCKETS setting: ", MAX_SOCKETS, " must be in [1, ", zmq_socket_limit, "]");
 
     // We bind `command` here so that the `get_control_socket()` below is always connecting to a
     // bound socket, but we do nothing else here: the proxy thread is responsible for everything
     // except binding it.
     command.bind(SN_ADDR_COMMAND);
-    proxy_thread = std::thread{&LokiMQ::proxy_loop, this};
+    proxy_thread = std::thread{&KreditsMQ::proxy_loop, this};
 
     LMQ_LOG(debug, "Waiting for proxy thread to get ready...");
     auto &control = get_control_socket();
@@ -257,14 +257,14 @@ void LokiMQ::start() {
     zmq::message_t ready_msg;
     std::vector<zmq::message_t> parts;
     try { recv_message_parts(control, parts); }
-    catch (const zmq::error_t &e) { throw std::runtime_error("Failure reading from LokiMQ::Proxy thread: "s + e.what()); }
+    catch (const zmq::error_t &e) { throw std::runtime_error("Failure reading from KreditsMQ::Proxy thread: "s + e.what()); }
 
     if (!(parts.size() == 1 && view(parts.front()) == "READY"))
         throw std::runtime_error("Invalid startup message from proxy thread (didn't get expected READY message)");
     LMQ_LOG(debug, "Proxy thread is ready");
 }
 
-void LokiMQ::listen_curve(std::string bind_addr, AllowFunc allow_connection) {
+void KreditsMQ::listen_curve(std::string bind_addr, AllowFunc allow_connection) {
     // TODO: there's no particular reason we can't start listening after starting up; just needs to
     // be implemented.  (But if we can start we'll probably also want to be able to stop, so it's
     // more than just binding that needs implementing).
@@ -273,7 +273,7 @@ void LokiMQ::listen_curve(std::string bind_addr, AllowFunc allow_connection) {
     bind.emplace_back(std::move(bind_addr), bind_data{true, std::move(allow_connection)});
 }
 
-void LokiMQ::listen_plain(std::string bind_addr, AllowFunc allow_connection) {
+void KreditsMQ::listen_plain(std::string bind_addr, AllowFunc allow_connection) {
     // TODO: As above.
     check_not_started(proxy_thread, "start listening");
 
@@ -281,7 +281,7 @@ void LokiMQ::listen_plain(std::string bind_addr, AllowFunc allow_connection) {
 }
 
 
-std::pair<LokiMQ::category*, const std::pair<LokiMQ::CommandCallback, bool>*> LokiMQ::get_command(std::string& command) {
+std::pair<KreditsMQ::category*, const std::pair<KreditsMQ::CommandCallback, bool>*> KreditsMQ::get_command(std::string& command) {
     if (command.size() > MAX_CATEGORY_LENGTH + 1 + MAX_COMMAND_LENGTH) {
         LMQ_LOG(warn, "Invalid command '", command, "': command too long");
         return {};
@@ -317,7 +317,7 @@ std::pair<LokiMQ::category*, const std::pair<LokiMQ::CommandCallback, bool>*> Lo
     return {&catit->second, &callback_it->second};
 }
 
-void LokiMQ::set_batch_threads(int threads) {
+void KreditsMQ::set_batch_threads(int threads) {
     if (proxy_thread.joinable())
         throw std::logic_error("Cannot change reserved batch threads after calling `start()`");
     if (threads < -1) // -1 is the default which is based on general threads
@@ -325,7 +325,7 @@ void LokiMQ::set_batch_threads(int threads) {
     batch_jobs_reserved = threads;
 }
 
-void LokiMQ::set_reply_threads(int threads) {
+void KreditsMQ::set_reply_threads(int threads) {
     if (proxy_thread.joinable())
         throw std::logic_error("Cannot change reserved reply threads after calling `start()`");
     if (threads < -1) // -1 is the default which is based on general threads
@@ -333,7 +333,7 @@ void LokiMQ::set_reply_threads(int threads) {
     reply_jobs_reserved = threads;
 }
 
-void LokiMQ::set_general_threads(int threads) {
+void KreditsMQ::set_general_threads(int threads) {
     if (proxy_thread.joinable())
         throw std::logic_error("Cannot change general thread count after calling `start()`");
     if (threads < 1)
@@ -341,7 +341,7 @@ void LokiMQ::set_general_threads(int threads) {
     general_workers = threads;
 }
 
-LokiMQ::run_info& LokiMQ::run_info::load(category* cat_, std::string command_, ConnectionID conn_, Access access_, std::string remote_,
+KreditsMQ::run_info& KreditsMQ::run_info::load(category* cat_, std::string command_, ConnectionID conn_, Access access_, std::string remote_,
                 std::vector<zmq::message_t> data_parts_, const std::pair<CommandCallback, bool>* callback_) {
     is_batch_job = false;
     is_reply_job = false;
@@ -355,12 +355,12 @@ LokiMQ::run_info& LokiMQ::run_info::load(category* cat_, std::string command_, C
     return *this;
 }
 
-LokiMQ::run_info& LokiMQ::run_info::load(pending_command&& pending) {
+KreditsMQ::run_info& KreditsMQ::run_info::load(pending_command&& pending) {
     return load(&pending.cat, std::move(pending.command), std::move(pending.conn), std::move(pending.access),
             std::move(pending.remote), std::move(pending.data_parts), pending.callback);
 }
 
-LokiMQ::run_info& LokiMQ::run_info::load(batch_job&& bj, bool reply_job) {
+KreditsMQ::run_info& KreditsMQ::run_info::load(batch_job&& bj, bool reply_job) {
     is_batch_job = true;
     is_reply_job = reply_job;
     batch_jobno = bj.second;
@@ -369,14 +369,14 @@ LokiMQ::run_info& LokiMQ::run_info::load(batch_job&& bj, bool reply_job) {
 }
 
 
-LokiMQ::~LokiMQ() {
+KreditsMQ::~KreditsMQ() {
     if (!proxy_thread.joinable())
         return;
 
-    LMQ_LOG(info, "LokiMQ shutting down proxy thread");
+    LMQ_LOG(info, "KreditsMQ shutting down proxy thread");
     detail::send_control(get_control_socket(), "QUIT");
     proxy_thread.join();
-    LMQ_LOG(info, "LokiMQ proxy thread has stopped");
+    LMQ_LOG(info, "KreditsMQ proxy thread has stopped");
 }
 
 std::ostream &operator<<(std::ostream &os, LogLevel lvl) {
@@ -400,5 +400,5 @@ std::string make_random_string(size_t size) {
     return rando;
 }
 
-} // namespace lokimq
+} // namespace kreditsmq
 // vim:sw=4:et
