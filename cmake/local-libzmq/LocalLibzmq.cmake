@@ -1,7 +1,7 @@
 set(LIBZMQ_PREFIX ${CMAKE_BINARY_DIR}/libzmq)
-set(ZeroMQ_VERSION 4.3.2)
-set(LIBZMQ_URL https://github.com/zeromq/libzmq/releases/download/v${ZeroMQ_VERSION}/zeromq-${ZeroMQ_VERSION}.tar.gz)
-set(LIBZMQ_HASH SHA512=b6251641e884181db9e6b0b705cced7ea4038d404bdae812ff47bdd0eed12510b6af6846b85cb96898e253ccbac71eca7fe588673300ddb9c3109c973250c8e4)
+set(ZeroMQ_VERSION 4.3.3)
+set(LIBZMQ_URL https://github.com/kreditsdev/libzmq/releases/download/v${ZeroMQ_VERSION}/zeromq-${ZeroMQ_VERSION}.tar.gz)
+set(LIBZMQ_HASH SHA256=3CCF273C1E81387611788D41462341EA2671DC42C2964EF11C65379DE445A51B)
 
 message(${LIBZMQ_URL})
 
